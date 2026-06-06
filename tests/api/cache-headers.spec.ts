@@ -17,6 +17,7 @@ const CACHED = [
   { path: '/api/swarms', maxAgeSeconds: 36_000 },
   { path: '/api/credits', maxAgeSeconds: 86_400 },
   { path: '/api/logs', maxAgeSeconds: 30 },
+  { path: '/api/rate-limits', maxAgeSeconds: 20 },
 ];
 
 const STRICT = process.env.PLAYWRIGHT_USE_BUILD === '1';

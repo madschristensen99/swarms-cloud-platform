@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import SwarmsAPIClient from '@/lib/api/swarms-client';
 
+const CACHE_TTL_MS = 20 * 1000;
+const CACHE_TTL_SECONDS = 20;
+
+type CacheEntry = {
+  data: unknown;
+  expiresAt: number;
+};
+
+const cache = new Map<string, CacheEntry>();
+
 export async function GET(request: NextRequest) {
   try {
-    const apiKey = request.headers.get('x-api-key') || process.env.SWARMS_API_KEY;
+    const apiKey =
+      request.headers.get('x-api-key') || process.env.SWARMS_API_KEY;
 
     if (!apiKey) {
       return NextResponse.json(
@@ -12,10 +23,35 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const client = new SwarmsAPIClient(apiKey);
-    const rateLimits = await client.getRateLimits();
+    const force = request.nextUrl.searchParams.get('refresh') === '1';
+    const cacheKey = apiKey;
+    const now = Date.now();
+    const cached = cache.get(cacheKey);
 
-    return NextResponse.json(rateLimits);
+    if (!force && cached && cached.expiresAt > now) {
+      return NextResponse.json(cached.data, {
+        headers: {
+          'X-Cache': 'HIT',
+          'X-Cache-Expires-In': String(
+            Math.max(0, Math.floor((cached.expiresAt - now) / 1000))
+          ),
+          'Cache-Control': `private, max-age=${CACHE_TTL_SECONDS}`,
+        },
+      });
+    }
+
+    const client = new SwarmsAPIClient(apiKey);
+    const data = await client.getRateLimits();
+
+    cache.set(cacheKey, { data, expiresAt: now + CACHE_TTL_MS });
+
+    return NextResponse.json(data, {
+      headers: {
+        'X-Cache': 'MISS',
+        'X-Cache-Expires-In': String(CACHE_TTL_SECONDS),
+        'Cache-Control': `private, max-age=${CACHE_TTL_SECONDS}`,
+      },
+    });
   } catch (error: any) {
     console.error('Error fetching rate limits:', error);
     return NextResponse.json(

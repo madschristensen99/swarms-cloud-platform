@@ -4,57 +4,49 @@ import React, { useMemo } from 'react';
 import { Navbar } from '@/components/layout/Navbar';
 import { MetricsCard } from '@/components/dashboard/MetricsCard';
 import { RateLimitCard } from '@/components/dashboard/RateLimitCard';
-import { useAgentStore } from '@/lib/store/agent-store';
+import { RecentAppsCard } from '@/components/dashboard/RecentAppsCard';
+import { RecentAgentsCard } from '@/components/dashboard/RecentAgentsCard';
 import { useRateLimits } from '@/lib/hooks/useRateLimits';
+import { useAgentConfigsList } from '@/lib/hooks/useAgentConfigsList';
+import { useSwarmLogs } from '@/lib/hooks/useSwarmLogs';
 import {
   Users,
-  Plus,
-  Activity,
   CheckCircle2,
   XCircle,
   Zap,
+  Calendar,
   Loader2,
   RefreshCw,
 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const agents = useAgentStore((state) => state.agents);
   const { rateLimits, isLoading, error, refetch } = useRateLimits();
+  const { configs, refetch: refetchConfigs } = useAgentConfigsList();
+  const { logs, refetch: refetchLogs } = useSwarmLogs();
 
   const metrics = useMemo(() => {
-    const totalAgents = agents.length;
-    const runningAgents = agents.filter((a) => a.status === 'running').length;
-    const completedAgents = agents.filter((a) => a.status === 'completed').length;
-    const errorAgents = agents.filter((a) => a.status === 'error').length;
-    const idleAgents = agents.filter((a) => a.status === 'idle').length;
-
-    const totalExecutions = agents.reduce(
-      (sum, agent) => sum + agent.execution_history.length,
-      0
-    );
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const agentsCreatedToday = agents.filter((agent) => {
-      const createdDate = new Date(agent.created_at);
-      createdDate.setHours(0, 0, 0, 0);
-      return createdDate.getTime() === today.getTime();
-    }).length;
+    const totalAgents = configs.length;
+    const totalExecutions = logs.length;
+    const completedExecutions = logs.filter((l) => l.success).length;
 
     const successRate =
-      totalAgents > 0 ? Math.round((completedAgents / totalAgents) * 100) : 0;
+      totalExecutions > 0
+        ? Math.round((completedExecutions / totalExecutions) * 100)
+        : 0;
 
     return {
       totalAgents,
-      agentsCreatedToday,
-      runningAgents,
-      completedAgents,
-      errorAgents,
-      idleAgents,
+      completedExecutions,
       totalExecutions,
       successRate,
     };
-  }, [agents]);
+  }, [configs, logs]);
+
+  const handleRefresh = () => {
+    refetch();
+    refetchConfigs();
+    refetchLogs();
+  };
 
   return (
     <div className="page-wrapper">
@@ -74,7 +66,7 @@ export default function DashboardPage() {
             </div>
             <button
               type="button"
-              onClick={refetch}
+              onClick={handleRefresh}
               disabled={isLoading}
               className="inline-flex items-center gap-2 h-9 px-3 rounded-md border border-border bg-card text-foreground text-sm hover:bg-muted transition-colors disabled:opacity-50"
               title="Refresh"
@@ -90,19 +82,17 @@ export default function DashboardPage() {
               title="Total agents"
               value={metrics.totalAgents}
               icon={Users}
-              subtitle="All agents in workspace"
+              subtitle="Configurations on file"
             />
             <MetricsCard
-              title="Created today"
-              value={metrics.agentsCreatedToday}
-              icon={Plus}
-              subtitle="New agents today"
-            />
-            <MetricsCard
-              title="Running"
-              value={metrics.runningAgents}
-              icon={Activity}
-              subtitle="Currently active"
+              title="Requests (24h)"
+              value={rateLimits?.rate_limits.day.count ?? 0}
+              icon={Calendar}
+              subtitle={
+                rateLimits
+                  ? `of ${rateLimits.limits.maximum_requests_per_day.toLocaleString()} daily limit`
+                  : 'API calls in the last 24h'
+              }
             />
             <MetricsCard
               title="Executions"
@@ -110,28 +100,18 @@ export default function DashboardPage() {
               icon={Zap}
               subtitle="All-time"
             />
-          </div>
-
-          {/* Status grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-8">
             <MetricsCard
               title="Completed"
-              value={metrics.completedAgents}
+              value={metrics.completedExecutions}
               icon={CheckCircle2}
               subtitle={`${metrics.successRate}% success rate`}
             />
-            <MetricsCard
-              title="Idle"
-              value={metrics.idleAgents}
-              icon={Users}
-              subtitle="Waiting for tasks"
-            />
-            <MetricsCard
-              title="Errors"
-              value={metrics.errorAgents}
-              icon={XCircle}
-              subtitle="Failed agents"
-            />
+          </div>
+
+          {/* Recently visited & called */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mb-8">
+            <RecentAppsCard />
+            <RecentAgentsCard />
           </div>
 
           {/* Rate limits */}

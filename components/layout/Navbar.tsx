@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useUIStore } from '@/lib/store/ui-store';
 import { useAgentStore } from '@/lib/store/agent-store';
+import { useRecentApps } from '@/lib/hooks/useRecentApps';
 import { CreditBalance } from '@/components/dashboard/CreditBalance';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { NavSearch } from './NavSearch';
@@ -15,6 +16,7 @@ import {
   Hammer,
   Users,
   History,
+  Activity,
   Settings,
   Cpu,
   Calculator,
@@ -38,6 +40,11 @@ export function Navbar() {
   const sidebarOpen = useUIStore((state) => state.sidebarOpen);
   const toggleSidebar = useUIStore((state) => state.toggleSidebar);
   const agents = useAgentStore((state) => state.agents);
+  const { recordVisit } = useRecentApps();
+
+  React.useEffect(() => {
+    if (pathname) recordVisit(pathname);
+  }, [pathname, recordVisit]);
 
   const totalExecutions = agents.reduce(
     (sum, agent) => sum + agent.execution_history.length,
@@ -50,6 +57,7 @@ export function Navbar() {
     { href: '/workbench', label: 'Workbench', icon: Hammer },
     { href: '/agents', label: 'Agents', icon: Users, badge: agents.length },
     { href: '/history', label: 'History', icon: History, badge: totalExecutions },
+    { href: '/observability', label: 'Observability', icon: Activity },
     { href: '/models', label: 'Models', icon: Cpu },
     { href: '/swarms', label: 'Swarms', icon: Network },
     { href: '/sdks', label: 'SDKs', icon: Package },
