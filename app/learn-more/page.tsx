@@ -438,8 +438,8 @@ export default async function LearnMorePage() {
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
               {signedIn ? (
-                <CtaLink href="/workbench" variant="brand">
-                  Open the Workbench
+                <CtaLink href="/" variant="brand">
+                  Open the Dashboard
                   <ArrowRight className="w-4 h-4" />
                 </CtaLink>
               ) : (
