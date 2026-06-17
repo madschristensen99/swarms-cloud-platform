@@ -28,6 +28,10 @@ import {
   Wand2,
   AppWindow,
   Package,
+  KeyRound,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 
 interface TabItem {
@@ -57,6 +61,39 @@ export function Navbar() {
     0
   );
 
+  // Horizontal scroll controls for the tab strip.
+  const tabStripRef = React.useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = React.useState(false);
+  const [canScrollRight, setCanScrollRight] = React.useState(false);
+
+  const updateScrollAffordance = React.useCallback(() => {
+    const el = tabStripRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 1);
+    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+  }, []);
+
+  React.useEffect(() => {
+    const el = tabStripRef.current;
+    if (!el) return;
+    updateScrollAffordance();
+    el.addEventListener('scroll', updateScrollAffordance, { passive: true });
+    const observer = new ResizeObserver(updateScrollAffordance);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener('scroll', updateScrollAffordance);
+      observer.disconnect();
+    };
+  }, [updateScrollAffordance, hydrated]);
+
+  const scrollTabs = (direction: 1 | -1) => {
+    const el = tabStripRef.current;
+    if (!el) return;
+    const amount = Math.max(160, el.clientWidth * 0.7);
+    el.scrollBy({ left: direction * amount, behavior: 'smooth' });
+  };
+
   const tabs: TabItem[] = [
     { href: '/', label: 'Dashboard', icon: LayoutGrid },
     { href: '/apps', label: 'Apps', icon: AppWindow },
@@ -71,6 +108,7 @@ export function Navbar() {
     { href: '/playground', label: 'Playground', icon: Sparkles },
     { href: '/prompts', label: 'Prompts', icon: Wand2 },
     { href: '/pricing', label: 'Pricing', icon: Calculator },
+    { href: '/api-keys', label: 'API Keys', icon: KeyRound },
     { href: '/settings', label: 'Settings', icon: Settings },
   ];
 
@@ -105,6 +143,24 @@ export function Navbar() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 min-w-0">
+            <a
+              href="https://docs.swarms.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:inline-flex items-center gap-1.5 h-7 px-2 rounded-sm border border-border bg-card text-xs text-muted-foreground hover:text-foreground hover:bg-muted hover:border-border-strong transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Docs</span>
+            </a>
+            <a
+              href="https://status.swarms.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:inline-flex items-center gap-1.5 h-7 px-2 rounded-sm border border-border bg-card text-xs text-muted-foreground hover:text-foreground hover:bg-muted hover:border-border-strong transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Status</span>
+            </a>
             <CreditBalance />
             <ThemeSwitcher compact />
             <AccountMenu />
@@ -114,14 +170,34 @@ export function Navbar() {
 
       {/* Row 2 — tab strip (AWS-style underline-active) */}
       <nav
-        className="bg-background border-b border-border"
+        className="relative bg-background border-b border-border"
         style={{
           paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
           paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
         }}
         aria-label="Primary"
       >
-        <div className="px-2 sm:px-3 overflow-x-auto sidebar-scroll">
+        {canScrollLeft && (
+          <button
+            type="button"
+            aria-label="Scroll tabs left"
+            onClick={() => scrollTabs(-1)}
+            className="absolute left-0 inset-y-0 z-10 flex items-center justify-start pl-1 pr-6 w-14 bg-gradient-to-r from-background via-background to-transparent text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
+        {canScrollRight && (
+          <button
+            type="button"
+            aria-label="Scroll tabs right"
+            onClick={() => scrollTabs(1)}
+            className="absolute right-0 inset-y-0 z-10 flex items-center justify-end pr-1 pl-6 w-14 bg-gradient-to-l from-background via-background to-transparent text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
+        <div ref={tabStripRef} className="px-2 sm:px-3 overflow-x-auto nav-scroll">
           <ul className="flex items-stretch gap-0.5 min-w-max">
             {tabs.map((tab) => {
               const isActive =
